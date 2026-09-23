@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resume Builder</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&family=Merriweather:wght@400;700&family=Lora:wght@400;600;700&family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+<style>
+  html, body { margin: 0; padding: 0; background: #EFEDE7; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, Fragment } = React;
+
+/* ---------- Design tokens ----------
+   Ink Navy   #14213D  (headers, ink)
+   Paper      #FBFAF7  (page background off-white, not cream-terracotta cliché)
+   Panel      #FFFFFF  (form panel)
+   Slate      #5B6472  (secondary text)
+   Amber      #FCA311  (single accent - "wax seal" moment, used sparingly)
+   Line       #E4E2DC  (hairlines)
+   Display font: 'Source Serif 4' (resume/document feel)
+   Body font:    'Inter' (UI, form)
+------------------------------------- */
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const emptyPersonal = {
+  fullName: "",
+  title: "",
+  email: "",
+  phone: "",
+  address: "",
+  linkedin: "",
+  github: "",
+  portfolio: "",
+};
+
+const SECTION_META = {
+  summary: { label: "Professional Summary" },
+  education: { label: "Education" },
+  skills: { label: "Skills" },
+  experience: { label: "Experience" },
+  projects: { label: "Projects" },
+  certifications: { label: "Certifications" },
+  achievements: { label: "Achievements" },
+  languages: { label: "Languages" },
+  hobbies: { label: "Hobbies" },
+  references: { label: "References" },
+};
+
+const DEFAULT_SECTION_ORDER = [
+  "summary",
+  "experience",
+  "education",
+  "projects",
+  "skills",
+  "certifications",
+  "achievements",
+  "languages",
+  "hobbies",
+  "references",
+];
+
+const TEMPLATES = [
+  { id: "modernBlue", name: "Modern Blue" },
+  { id: "minimalWhite", name: "Minimal White" },
+  { id: "plainATS", name: "Plain ATS" },
+  { id: "elegantBlack", name: "Elegant Black" },
+  { id: "creativeSidebar", name: "Creative Sidebar" },
+  { id: "corporateProfessional", name: "Corporate Professional" },
+  { id: "studentFresher", name: "Student Fresher" },
+  { id: "twoToneCompact", name: "Two-Tone Compact" },
+  { id: "timelineFocus", name: "Timeline Focus" },
+  { id: "executiveLetterhead", name: "Executive Letterhead" },
+  { id: "skillsFirstGrid", name: "Skills-First Grid" },
+  { id: "photoBanner", name: "Photo Banner" },
+];
+
+// Which plan a template requires. Anything not listed is free.
+const TEMPLATE_TIERS = {
+  modernBlue: "free",
+  minimalWhite: "free",
+  plainATS: "free",
+  elegantBlack: "basic",
+  creativeSidebar: "basic",
+  corporateProfessional: "basic",
+  studentFresher: "basic",
+  twoToneCompact: "basic",
+  timelineFocus: "basic",
+  executiveLetterhead: "basic",
+  skillsFirstGrid: "basic",
+  photoBanner: "basic",
+};
+
+const FONT_CHOICES = [
+  { id: "serif", label: "Source Serif", stack: "'Source Serif 4', Georgia, serif" },
+  { id: "sans", label: "Inter", stack: "'Inter', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "playfair", label: "Playfair Display", stack: "'Playfair Display', Georgia, serif" },
+  { id: "merriweather", label: "Merriweather", stack: "'Merriweather', Georgia, serif" },
+  { id: "lora", label: "Lora", stack: "'Lora', Georgia, serif" },
+  { id: "montserrat", label: "Montserrat", stack: "'Montserrat', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "poppins", label: "Poppins", stack: "'Poppins', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "robotoSlab", label: "Roboto Slab", stack: "'Roboto Slab', Georgia, serif" },
+  { id: "plexMono", label: "IBM Plex Mono", stack: "'IBM Plex Mono', 'Courier New', monospace" },
+];
+
+const COLOR_CHOICES = ["#14213D", "#8A2432", "#1E7F73", "#5B21B6", "#0F172A", "#B45309"];
+
+/* ---------------- Plans ---------------- */
+
+const PLANS = {
+  free: {
+    id: "free",
+    name: "Free",
+    price: "₹0",
+    period: "",
+    tagline: "Try the builder",
+    features: ["3 starter templates", "Full live preview", "PDF export (watermarked)"],
+  },
+  basic: {
+    id: "basic",
+    name: "Basic",
+    price: "₹99",
+    period: "/month",
+    tagline: "Every template, no watermark",
+    features: [
+      "All 12 templates unlocked",
+      "Watermark-free PDF export",
+      "Custom accent colors & fonts",
+    ],
+  },
+  premium: {
+    id: "premium",
+    name: "Premium",
+    price: "₹199",
+    period: "/month",
+    tagline: "Let AI tailor it for you",
+    features: [
+      "Everything in Basic",
+      "AI Resume Assistant",
+      "Job-match score & keyword gap check",
+    ],
+  },
+};
+
+const PLAN_RANK = { free: 0, basic: 1, premium: 2 };
+function planUnlocks(currentPlan, requiredPlan) {
+  return PLAN_RANK[currentPlan] >= PLAN_RANK[requiredPlan];
+}
+
+function EmailValid(v) {
+  return v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+function PhoneValid(v) {
+  return v === "" || /^[+()\-.\s\d]{7,20}$/.test(v);
+}
+function UrlValid(v) {
+  return v === "" || /^(https?:\/\/)?[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(v);
+}
+
+/* ---------------- Reusable form bits ---------------- */
+
+function Field({ label, error, children }) {
+  return (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: "#5B6472", letterSpacing: 0.2 }}>
+        {label}
+      </span>
+      <div style={{ marginTop: 5 }}>{children}</div>
+      {error && (
+        <div style={{ fontSize: 12, color: "#B4322A", marginTop: 4 }}>{error}</div>
+      )}
+    </label>
+  );
+}
+
+const inputStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "9px 11px",
+  borderRadius: 8,
+  border: "1px solid #E4E2DC",
+  fontSize: 14,
+  fontFamily: "'Inter', sans-serif",
+  outline: "none",
+  background: "#fff",
+  color: "#14213D",
+};
+
+function TextInput(props) {
+  return <input {...props} style={{ ...inputStyle, ...(props.style || {}) }} />;
+}
+function TextArea(props) {
+  return (
+    <textarea
+      {...props}
+      style={{ ...inputStyle, minHeight: 72, resize: "vertical", ...(props.style || {}) }}
+    />
+  );
+}
+
+function GhostButton({ children, onClick, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      style={{
+        border: "1px solid #E4E2DC",
+        background: "#fff",
+        borderRadius: 7,
+        padding: "6px 10px",
+        fontSize: 12.5,
+        fontFamily: "'Inter', sans-serif",
+        color: "#5B6472",
+        cursor: "pointer",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#14213D")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#E4E2DC")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AIButton({ onClick, label = "Suggest wording" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        border: "none",
+        background: "linear-gradient(135deg, #FCA311, #E08900)",
+        color: "#14213D",
+        borderRadius: 7,
+        padding: "6px 12px",
+        fontSize: 12.5,
+        fontWeight: 700,
+        fontFamily: "'Inter', sans-serif",
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      ✦ {label}
+    </button>
+  );
+}
+
+/* ---------------- Canned "AI" suggestion engine (local, no external API) ---------------- */
+
+function suggestSummary(personal, skills, jobDescription) {
+  const title = personal.title || "professional";
+  const topSkills = skills.slice(0, 4).map((s) => s.value).filter(Boolean);
+  const skillsText = topSkills.length
+    ? ` skilled in ${topSkills.join(", ")}`
+    : "";
+  let tailored = "";
+  if (jobDescription && jobDescription.trim()) {
+    const kws = extractKeywords(jobDescription, 4);
+    if (kws.length) {
+      tailored = ` Experienced in areas such as ${kws.join(", ")}, aligned with the target role's requirements.`;
+    }
+  }
+  return `Results-driven ${title}${skillsText}, with a track record of delivering measurable outcomes and collaborating across teams.${tailored} Known for translating complex requirements into practical solutions and continuously improving process efficiency.`;
+}
+function suggestObjective(personal) {
+  const title = personal.title || "professional";
+  return `Motivated ${title} seeking to apply strong technical and problem-solving skills to contribute to a forward-thinking team, while growing expertise and delivering measurable impact.`;
+}
+function suggestExperienceBullets(role) {
+  const r = role || "the role";
+  return [
+    `Led key initiatives within ${r}, improving efficiency and delivery timelines.`,
+    `Collaborated with cross-functional teams to identify and resolve critical issues.`,
+    `Implemented process improvements that increased output quality and consistency.`,
+  ].join("\n");
+}
+function suggestProjectDescription(name, tech) {
+  const n = name || "the project";
+  const t = tech ? ` using ${tech}` : "";
+  return `Designed and built ${n}${t}, focusing on performance, usability, and maintainable architecture. Delivered a working solution that met all defined requirements.`;
+}
+function suggestAchievement() {
+  const options = [
+    "Recognized for outstanding contribution to a major project delivery.",
+    "Improved a key process, reducing turnaround time by a significant margin.",
+    "Mentored new team members, accelerating their onboarding and productivity.",
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+/* ---------------- AI System: role-aware skills, JD match, ATS score ---------------- */
+
+const ROLE_SKILL_MAP = [
+  { match: /front.?end|react|ui developer/i, skills: ["React", "JavaScript", "HTML5", "CSS3", "Responsive Design", "TypeScript", "REST APIs", "Git"] },
+  { match: /back.?end|node|java developer|api engineer/i, skills: ["Node.js", "REST APIs", "SQL", "System Design", "Microservices", "Docker", "Git", "Unit Testing"] },
+  { match: /full.?stack/i, skills: ["JavaScript", "React", "Node.js", "SQL", "REST APIs", "Git", "CI/CD", "Cloud Deployment"] },
+  { match: /data scien|machine learning|ml engineer|ai engineer/i, skills: ["Python", "Machine Learning", "SQL", "Pandas", "Data Visualization", "Statistics", "Model Deployment"] },
+  { match: /data analy/i, skills: ["Excel", "SQL", "Data Visualization", "Power BI", "Statistical Analysis", "Python"] },
+  { match: /product manager/i, skills: ["Product Strategy", "Roadmapping", "Stakeholder Management", "User Research", "Agile", "A/B Testing"] },
+  { match: /project manager/i, skills: ["Project Planning", "Risk Management", "Agile", "Scrum", "Stakeholder Communication", "Budgeting"] },
+  { match: /market/i, skills: ["Content Strategy", "SEO", "Social Media Marketing", "Campaign Management", "Analytics", "Email Marketing"] },
+  { match: /sales/i, skills: ["Lead Generation", "Client Relationship Management", "Negotiation", "CRM Software", "Pipeline Management"] },
+  { match: /designer|ux|ui design/i, skills: ["Figma", "Wireframing", "User Research", "Prototyping", "Design Systems", "Visual Design"] },
+  { match: /account|finance/i, skills: ["Financial Reporting", "Budgeting", "Reconciliation", "Excel", "GAAP", "Forecasting"] },
+  { match: /hr|human resources|recruiter/i, skills: ["Talent Acquisition", "Onboarding", "Employee Relations", "HRIS", "Performance Management"] },
+  { match: /teacher|instructor|educator/i, skills: ["Curriculum Design", "Classroom Management", "Lesson Planning", "Student Assessment", "Communication"] },
+  { match: /nurse|medical|clinical/i, skills: ["Patient Care", "Clinical Documentation", "EHR Systems", "Vital Signs Monitoring", "Care Coordination"] },
+  { match: /mechanical/i, skills: ["CAD", "SolidWorks", "GD&T", "Manufacturing Processes", "Project Documentation"] },
+  { match: /civil/i, skills: ["AutoCAD", "Structural Analysis", "Site Planning", "Project Scheduling", "Regulatory Compliance"] },
+  { match: /support|customer service/i, skills: ["Customer Support", "Troubleshooting", "Ticketing Systems", "Communication", "Conflict Resolution"] },
+];
+const DEFAULT_ROLE_SKILLS = ["Communication", "Problem Solving", "Team Collaboration", "Time Management", "Adaptability"];
+
+function suggestRoleSkills(title) {
+  const entry = ROLE_SKILL_MAP.find((r) => r.match.test(title || ""));
+  return entry ? entry.skills : DEFAULT_ROLE_SKILLS;
+}
+
+function suggestSkills(existing, title) {
+  const pool = [
+    ...suggestRoleSkills(title),
+    "Communication",
+    "Problem Solving",
+    "Team Collaboration",
+    "Project Management",
+    "Adaptability",
+  ];
+  const unique = [...new Set(pool)];
+  return unique.filter((p) => !existing.includes(p)).slice(0, 5);
+}
+
+const STOPWORDS = new Set([
+  "the", "and", "for", "with", "that", "this", "from", "your", "you", "are", "will",
+  "have", "has", "our", "their", "a", "an", "of", "to", "in", "on", "as", "by", "or",
+  "be", "is", "we", "at", "it", "its", "into", "across", "using", "use", "who",
+  "which", "role", "job", "team", "teams", "work", "working", "years", "experience",
+  "including", "such", "you'll", "we're", "able", "must", "also", "etc", "per",
+]);
+
+function tokenize(text) {
+  return (text || "").toLowerCase().match(/[a-z][a-z0-9+.#]{1,}/g) || [];
+}
+
+function extractKeywords(jobDescription, limit = 15) {
+  const freq = {};
+  tokenize(jobDescription).forEach((w) => {
+    if (STOPWORDS.has(w) || w.length < 3) return;
+    freq[w] = (freq[w] || 0) + 1;
+  });
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([w]) => w)
+    .slice(0, limit);
+}
+
+function buildResumeText({ summary, personal, skills, experience, projects, education, achievements }) {
+  const parts = [
+    summary,
+    personal.title,
+    skills.map((s) => s.value).join(" "),
+    experience.map((e) => `${e.role} ${e.company} ${e.bullets}`).join(" "),
+    projects.map((p) => `${p.name} ${p.tech} ${p.description}`).join(" "),
+    education.map((e) => `${e.degree} ${e.branch}`).join(" "),
+    achievements.map((a) => a.text).join(" "),
+  ];
+  return parts.join(" ").toLowerCase();
+}
+
+function computeAtsScore(state) {
+  const { personal, summary, skills, experience, education, projects, certifications, jobDescription } = state;
+  let score = 0;
+  const tips = [];
+
+  if (personal.fullName && personal.email) score += 10;
+  else tips.push("Add your full name and email.");
+
+  if (personal.phone) score += 5;
+  else tips.push("Add a phone number.");
+
+  if (summary && summary.trim().length >= 60) score += 15;
+  else tips.push("Write a summary of at least 60 characters.");
+
+  const filledSkills = skills.filter((s) => s.value).length;
+  if (filledSkills >= 6) score += 15;
+  else tips.push(`Add ${Math.max(6 - filledSkills, 1)} more skill${6 - filledSkills === 1 ? "" : "s"}.`);
+
+  if (experience.length >= 1) score += 15;
+  else tips.push("Add at least one experience entry.");
+
+  const bulletCount = experience.reduce(
+    (n, e) => n + (e.bullets ? e.bullets.split("\n").filter(Boolean).length : 0),
+    0
+  );
+  if (bulletCount >= 3) score += 10;
+  else tips.push("Add more bullet points describing your impact.");
+
+  if (education.length && education[0].school) score += 10;
+  else tips.push("Add your education details.");
+
+  if (projects.length || certifications.length) score += 10;
+  else tips.push("Add a project or certification to stand out.");
+
+  let missingKeywords = [];
+  if (jobDescription && jobDescription.trim()) {
+    const keywords = extractKeywords(jobDescription);
+    const resumeText = buildResumeText(state);
+    missingKeywords = keywords.filter((k) => !resumeText.includes(k));
+    const matched = keywords.length - missingKeywords.length;
+    const matchScore = keywords.length ? Math.round((matched / keywords.length) * 20) : 0;
+    score += matchScore;
+    if (missingKeywords.length) {
+      tips.push(`Consider weaving in these keywords from the job description: ${missingKeywords.slice(0, 6).join(", ")}.`);
+    }
+  }
+
+  return { score: Math.min(100, score), tips, missingKeywords };
+}
+
+/* ---------------- Repeatable list section builder ---------------- */
+
+function useListSection(initial = []) {
+  const [items, setItems] = useState(initial);
+  const add = (blank) => setItems((prev) => [...prev, { id: uid(), ...blank }]);
+  const remove = (id) => setItems((prev) => prev.filter((i) => i.id !== id));
+  const update = (id, patch) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  return [items, { add, remove, update, setItems }];
+}
+
+/* ---------------- Main App ---------------- */
+
+function ResumeBuilder() {
+  const [personal, setPersonal] = useState(emptyPersonal);
+  const [photo, setPhoto] = useState(null);
+  const [photoError, setPhotoError] = useState("");
+  const [summary, setSummary] = useState("");
+
+  const [education, eduOps] = useListSection([
+    { id: uid(), school: "", degree: "", branch: "", grade: "", start: "", end: "" },
+  ]);
+  const [skills, skillOps] = useListSection([{ id: uid(), value: "" }]);
+  const [experience, expOps] = useListSection([]);
+  const [projects, projOps] = useListSection([]);
+  const [certifications, certOps] = useListSection([]);
+  const [achievements, achOps] = useListSection([]);
+  const [languages, langOps] = useListSection([]);
+  const [hobbies, setHobbies] = useState("");
+  const [references, setReferences] = useState("");
+
+  const [errors, setErrors] = useState({});
+
+  const [templateId, setTemplateId] = useState("modernBlue");
+  const [accent, setAccent] = useState("#14213D");
+  const [fontId, setFontId] = useState("serif");
+  const [fontSize, setFontSize] = useState(14);
+  const [spacing, setSpacing] = useState(1);
+  const [visible, setVisible] = useState(
+    Object.fromEntries(DEFAULT_SECTION_ORDER.map((k) => [k, true]))
+  );
+  const [order, setOrder] = useState(DEFAULT_SECTION_ORDER);
+  const dragIndex = useRef(null);
+
+  const [jobDescription, setJobDescription] = useState("");
+  const [aiResult, setAiResult] = useState(null);
+
+  // ---- Plan / billing state ----
+  const [plan, setPlan] = useState("free");
+  const [pricingModal, setPricingModal] = useState(null); // { requiredPlan } | null
+
+  function runAiAnalysis() {
+    const result = computeAtsScore({
+      personal,
+      summary,
+      skills,
+      experience,
+      education,
+      projects,
+      certifications,
+      jobDescription,
+    });
+    setAiResult(result);
+  }
+
+  function autoFillRoleSkills() {
+    const suggested = suggestRoleSkills(personal.title);
+    const existing = skills.map((s) => s.value);
+    suggested.filter((s) => !existing.includes(s)).forEach((v) => skillOps.add({ value: v }));
+  }
+
+  function guessTitleFromJD(jd) {
+    if (personal.title) return personal.title;
+    const firstLine = (jd || "").split("\n").map((l) => l.trim()).filter(Boolean)[0] || "";
+    return firstLine.slice(0, 60);
+  }
+
+  function buildForJob() {
+    if (!jobDescription.trim()) return;
+    const inferredTitle = guessTitleFromJD(jobDescription);
+    if (!personal.title && inferredTitle) {
+      setPersonal((prev) => ({ ...prev, title: inferredTitle }));
+    }
+    const effectivePersonal = { ...personal, title: personal.title || inferredTitle };
+
+    const suggested = suggestRoleSkills(effectivePersonal.title);
+    const existing = skills.map((s) => s.value);
+    const toAdd = suggested.filter((s) => !existing.includes(s));
+    const nextSkills = [...skills, ...toAdd.map((v) => ({ id: uid(), value: v }))];
+    toAdd.forEach((v) => skillOps.add({ value: v }));
+
+    const tailoredSummary = suggestSummary(effectivePersonal, nextSkills, jobDescription);
+    setSummary(tailoredSummary);
+
+    const result = computeAtsScore({
+      personal: effectivePersonal,
+      summary: tailoredSummary,
+      skills: nextSkills,
+      experience,
+      education,
+      projects,
+      certifications,
+      jobDescription,
+    });
+    setAiResult(result);
+  }
+
+  function validatePersonal() {
+    const e = {};
+    if (!personal.fullName.trim()) e.fullName = "Full name is required.";
+    if (!personal.email.trim()) e.email = "Email is required.";
+    else if (!EmailValid(personal.email)) e.email = "Enter a valid email address.";
+    if (personal.phone && !PhoneValid(personal.phone)) e.phone = "Enter a valid phone number.";
+    ["linkedin", "github", "portfolio"].forEach((k) => {
+      if (personal[k] && !UrlValid(personal[k])) e[k] = "Enter a valid URL.";
+    });
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function handlePhoto(e) {
+    const file = e.target.files?.[0];
+    // Reset the input value so choosing the exact same file again still fires onChange.
+    e.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please choose an image file (JPG, PNG, etc).");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setPhotoError("That image is over 8MB — please choose a smaller file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => setPhotoError("Couldn't read that file — please try again.");
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => setPhotoError("Couldn't load that image — please try a different file.");
+      img.onload = () => {
+        // Downscale large photos so the data URL stays small enough for
+        // React state, the print/export flow, and the templates that show it.
+        const maxDim = 500;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setPhoto(canvas.toDataURL("image/jpeg", 0.85));
+        setPhotoError("");
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removePhoto() {
+    setPhoto(null);
+    setPhotoError("");
+  }
+
+  function onDragStart(i) {
+    dragIndex.current = i;
+  }
+  function onDragOver(e) {
+    e.preventDefault();
+  }
+  function onDrop(i) {
+    const from = dragIndex.current;
+    if (from === null || from === i) return;
+    setOrder((prev) => {
+      const copy = [...prev];
+      const [moved] = copy.splice(from, 1);
+      copy.splice(i, 0, moved);
+      return copy;
+    });
+    dragIndex.current = null;
+  }
+
+  const [downloadWarning, setDownloadWarning] = useState("");
+
+  function handleDownloadPdf() {
+    if (!validatePersonal()) {
+      setDownloadWarning("Add your full name and a valid email above, then try downloading again.");
+      return;
+    }
+    setDownloadWarning("");
+    // Native browser print-to-PDF: reliable inside a sandboxed artifact,
+    // where arbitrary third-party script loading (html2canvas/jsPDF) is blocked.
+    // Print CSS below isolates the preview page, sets an A4 page size, and
+    // keeps each resume section from splitting across a page break.
+    window.print();
+  }
+
+  function selectTemplate(id) {
+    const tier = TEMPLATE_TIERS[id] || "free";
+    if (planUnlocks(plan, tier)) {
+      setTemplateId(id);
+    } else {
+      setPricingModal({ requiredPlan: tier });
+    }
+  }
+
+  const fontStack = FONT_CHOICES.find((f) => f.id === fontId).stack;
+
+  return (
+    <div style={{ fontFamily: "'Inter', sans-serif", background: "#EFEDE7", minHeight: "100vh" }}>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #resume-preview-page, #resume-preview-page * { visibility: visible; }
+          #resume-preview-page { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none !important; }
+          #resume-preview-page .rb-section { break-inside: avoid; page-break-inside: avoid; }
+          @page { size: A4; margin: 14mm; }
+        }
+        input:focus, textarea:focus { border-color: #14213D !important; box-shadow: 0 0 0 3px rgba(20,33,61,0.08); }
+        ::selection { background: #FCA311; color: #14213D; }
+      `}</style>
+
+      {/* Header */}
+      <div
+        style={{
+          background: "#14213D",
+          color: "#fff",
+          padding: "18px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 22, fontWeight: 700 }}>
+            Resume Builder<span style={{ color: "#FCA311" }}>.</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: "#A9B4C7", marginTop: 2 }}>
+            Build, preview, and export an ATS-friendly resume — right in your browser.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {aiResult && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: "#A9B4C7" }}>AI resume score</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#FCA311" }}>{aiResult.score}/100</div>
+            </div>
+          )}
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: "#A9B4C7" }}>Current plan</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{PLANS[plan].name}</span>
+              {plan !== "premium" && (
+                <button
+                  type="button"
+                  onClick={() => setPricingModal({ requiredPlan: plan === "free" ? "basic" : "premium" })}
+                  style={{
+                    border: "none",
+                    background: "linear-gradient(135deg, #FCA311, #E08900)",
+                    color: "#14213D",
+                    borderRadius: 20,
+                    padding: "4px 12px",
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    fontFamily: "'Inter', sans-serif",
+                    cursor: "pointer",
+                  }}
+                >
+                  Upgrade
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <GhostButton onClick={handleDownloadPdf} title="Opens the print dialog — choose 'Save as PDF' as the destination">
+              ⬇ Download PDF
+            </GhostButton>
+            <span style={{ fontSize: 11, color: downloadWarning ? "#FCA311" : "#A9B4C7" }}>
+              {downloadWarning || 'Opens print dialog — set destination to "Save as PDF"'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(320px, 1fr) minmax(360px, 1.1fr)",
+          gap: 24,
+          padding: 24,
+          alignItems: "start",
+        }}
+        className="rb-grid"
+      >
+        {/* -------- FORM PANEL -------- */}
+        <div
+          style={{
+            background: "#FFFFFF",
+            borderRadius: 14,
+            padding: 20,
+            boxShadow: "0 1px 3px rgba(20,33,61,0.08)",
+          }}
+        >
+          {/* Templates */}
+          <SectionHeader title="Template" subtitle="Locked templates unlock with Basic or Premium." />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
+            {TEMPLATES.map((t) => {
+              const tier = TEMPLATE_TIERS[t.id] || "free";
+              const locked = !planUnlocks(plan, tier);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => selectTemplate(t.id)}
+                  style={{
+                    cursor: "pointer",
+                    border: templateId === t.id ? `2px solid ${accent}` : "1px solid #E4E2DC",
+                    borderRadius: 9,
+                    padding: "8px 10px",
+                    background: templateId === t.id ? "#F7F5F0" : locked ? "#FBFAF7" : "#fff",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: locked ? "#8A93A3" : "#14213D",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  {locked && "🔒"} {t.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Customization */}
+          <SectionHeader title="Customize" />
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 20, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "#5B6472", marginBottom: 6 }}>Color</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {COLOR_CHOICES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setAccent(c)}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      background: c,
+                      border: accent === c ? "2px solid #14213D" : "1px solid #E4E2DC",
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "#5B6472", marginBottom: 6 }}>Font</div>
+              <select value={fontId} onChange={(e) => setFontId(e.target.value)} style={{ ...inputStyle, padding: "5px 8px" }}>
+                {FONT_CHOICES.map((f) => (
+                  <option key={f.id} value={f.id}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "#5B6472", marginBottom: 6 }}>Font size</div>
+              <input type="range" min="12" max="17" value={fontSize} onChange={(e) => setFontSize(+e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "#5B6472", marginBottom: 6 }}>Spacing</div>
+              <input type="range" min="0.8" max="1.4" step="0.1" value={spacing} onChange={(e) => setSpacing(+e.target.value)} />
+            </div>
+          </div>
+
+          {/* AI Resume Assistant — Premium only */}
+          {planUnlocks(plan, "premium") ? (
+            <AIAssistantPanel
+              personal={personal}
+              jobDescription={jobDescription}
+              setJobDescription={setJobDescription}
+              aiResult={aiResult}
+              onAnalyze={runAiAnalysis}
+              onAutoFillSkills={autoFillRoleSkills}
+              onBuildForJob={buildForJob}
+            />
+          ) : (
+            <LockedAIPanel onUpgrade={() => setPricingModal({ requiredPlan: "premium" })} />
+          )}
+
+          {/* Personal Info */}
+          <SectionHeader title="Personal Information" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px", marginBottom: 6 }}>
+            <Field label="Full Name *" error={errors.fullName}>
+              <TextInput value={personal.fullName} onChange={(e) => setPersonal({ ...personal, fullName: e.target.value })} />
+            </Field>
+            <Field label="Professional Title">
+              <TextInput value={personal.title} onChange={(e) => setPersonal({ ...personal, title: e.target.value })} placeholder="e.g. Frontend Developer" />
+            </Field>
+            <Field label="Email *" error={errors.email}>
+              <TextInput value={personal.email} onChange={(e) => setPersonal({ ...personal, email: e.target.value })} />
+            </Field>
+            <Field label="Phone Number" error={errors.phone}>
+              <TextInput value={personal.phone} onChange={(e) => setPersonal({ ...personal, phone: e.target.value })} />
+            </Field>
+            <Field label="Address">
+              <TextInput value={personal.address} onChange={(e) => setPersonal({ ...personal, address: e.target.value })} />
+            </Field>
+            <Field label="LinkedIn" error={errors.linkedin}>
+              <TextInput value={personal.linkedin} onChange={(e) => setPersonal({ ...personal, linkedin: e.target.value })} />
+            </Field>
+            <Field label="GitHub" error={errors.github}>
+              <TextInput value={personal.github} onChange={(e) => setPersonal({ ...personal, github: e.target.value })} />
+            </Field>
+            <Field label="Portfolio Website" error={errors.portfolio}>
+              <TextInput value={personal.portfolio} onChange={(e) => setPersonal({ ...personal, portfolio: e.target.value })} />
+            </Field>
+          </div>
+          <Field label="Upload Photo" error={photoError}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="file" accept="image/*" onChange={handlePhoto} style={{ fontSize: 12.5 }} />
+              {photo && (
+                <>
+                  <img
+                    src={photo}
+                    alt="Uploaded profile"
+                    style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "1px solid #E4E2DC" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={removePhoto}
+                    style={{ border: "none", background: "none", color: "#B4322A", fontSize: 11.5, cursor: "pointer" }}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: "#8A93A3", marginTop: 4 }}>
+              Not every template displays a photo — Plain ATS and a few others are text-only by design.
+            </div>
+          </Field>
+
+          {/* Reorderable / toggleable sections */}
+          <SectionHeader title="Sections" subtitle="Drag ≡ to reorder. Toggle to show or hide." />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            {order.map((key, i) => (
+              <div
+                key={key}
+                draggable
+                onDragStart={() => onDragStart(i)}
+                onDragOver={onDragOver}
+                onDrop={() => onDrop(i)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  border: "1px solid #E4E2DC",
+                  borderRadius: 8,
+                  padding: "6px 10px",
+                  background: "#FBFAF7",
+                  fontSize: 13,
+                  cursor: "grab",
+                }}
+              >
+                <span>≡ {SECTION_META[key].label}</span>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#5B6472" }}>
+                  <input
+                    type="checkbox"
+                    checked={visible[key]}
+                    onChange={(e) => setVisible({ ...visible, [key]: e.target.checked })}
+                  />
+                  show
+                </label>
+              </div>
+            ))}
+          </div>
+
+          {/* Summary */}
+          <SectionHeader title="Professional Summary" />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <AIButton label="Generate Summary" onClick={() => setSummary(suggestSummary(personal, skills, jobDescription))} />
+          </div>
+          <TextArea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="A short, impactful summary of your experience..." style={{ marginBottom: 4 }} />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+            <GhostButton onClick={() => setSummary(suggestObjective(personal))}>Use as career objective instead</GhostButton>
+          </div>
+
+          {/* Education */}
+          <RepeatSection
+            title="Education"
+            items={education}
+            onAdd={() => eduOps.add({ school: "", degree: "", branch: "", grade: "", start: "", end: "" })}
+            onRemove={eduOps.remove}
+            addLabel="Add education"
+            render={(item) => (
+              <>
+                <TwoCol>
+                  <TextInput placeholder="College/School Name" value={item.school} onChange={(e) => eduOps.update(item.id, { school: e.target.value })} />
+                  <TextInput placeholder="Degree" value={item.degree} onChange={(e) => eduOps.update(item.id, { degree: e.target.value })} />
+                </TwoCol>
+                <TwoCol>
+                  <TextInput placeholder="Branch" value={item.branch} onChange={(e) => eduOps.update(item.id, { branch: e.target.value })} />
+                  <TextInput placeholder="Percentage / CGPA" value={item.grade} onChange={(e) => eduOps.update(item.id, { grade: e.target.value })} />
+                </TwoCol>
+                <TwoCol>
+                  <TextInput placeholder="Start Year" value={item.start} onChange={(e) => eduOps.update(item.id, { start: e.target.value })} />
+                  <TextInput placeholder="End Year" value={item.end} onChange={(e) => eduOps.update(item.id, { end: e.target.value })} />
+                </TwoCol>
+              </>
+            )}
+          />
+
+          {/* Skills */}
+          <SectionHeader title="Skills" />
+          <TagInput
+            skills={skills}
+            onAdd={(value) => skillOps.add({ value })}
+            onRemove={skillOps.remove}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", margin: "6px 0 20px" }}>
+            <AIButton
+              label="Suggest skills"
+              onClick={() => {
+                const existing = skills.map((s) => s.value);
+                suggestSkills(existing, personal.title).forEach((v) => skillOps.add({ value: v }));
+              }}
+            />
+          </div>
+
+          {/* Experience */}
+          <RepeatSection
+            title="Experience"
+            items={experience}
+            onAdd={() => expOps.add({ company: "", role: "", location: "", start: "", end: "", bullets: "" })}
+            onRemove={expOps.remove}
+            addLabel="Add experience"
+            render={(item) => (
+              <>
+                <TwoCol>
+                  <TextInput placeholder="Company" value={item.company} onChange={(e) => expOps.update(item.id, { company: e.target.value })} />
+                  <TextInput placeholder="Job Title" value={item.role} onChange={(e) => expOps.update(item.id, { role: e.target.value })} />
+                </TwoCol>
+                <TwoCol>
+                  <TextInput placeholder="Location" value={item.location} onChange={(e) => expOps.update(item.id, { location: e.target.value })} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <TextInput placeholder="Start" value={item.start} onChange={(e) => expOps.update(item.id, { start: e.target.value })} />
+                    <TextInput placeholder="End" value={item.end} onChange={(e) => expOps.update(item.id, { end: e.target.value })} />
+                  </div>
+                </TwoCol>
+                <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0" }}>
+                  <AIButton label="Suggest bullet points" onClick={() => expOps.update(item.id, { bullets: suggestExperienceBullets(item.role) })} />
+                </div>
+                <TextArea placeholder="Responsibilities (one per line)" value={item.bullets} onChange={(e) => expOps.update(item.id, { bullets: e.target.value })} />
+              </>
+            )}
+          />
+
+          {/* Projects */}
+          <RepeatSection
+            title="Projects"
+            items={projects}
+            onAdd={() => projOps.add({ name: "", description: "", tech: "", github: "", demo: "" })}
+            onRemove={projOps.remove}
+            addLabel="Add project"
+            render={(item) => (
+              <>
+                <TwoCol>
+                  <TextInput placeholder="Project Name" value={item.name} onChange={(e) => projOps.update(item.id, { name: e.target.value })} />
+                  <TextInput placeholder="Technologies Used" value={item.tech} onChange={(e) => projOps.update(item.id, { tech: e.target.value })} />
+                </TwoCol>
+                <TwoCol>
+                  <TextInput placeholder="GitHub Link" value={item.github} onChange={(e) => projOps.update(item.id, { github: e.target.value })} />
+                  <TextInput placeholder="Live Demo Link" value={item.demo} onChange={(e) => projOps.update(item.id, { demo: e.target.value })} />
+                </TwoCol>
+                <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0" }}>
+                  <AIButton label="Suggest description" onClick={() => projOps.update(item.id, { description: suggestProjectDescription(item.name, item.tech) })} />
+                </div>
+                <TextArea placeholder="Description" value={item.description} onChange={(e) => projOps.update(item.id, { description: e.target.value })} />
+              </>
+            )}
+          />
+
+          {/* Certifications */}
+          <RepeatSection
+            title="Certifications"
+            items={certifications}
+            onAdd={() => certOps.add({ name: "", org: "", year: "" })}
+            onRemove={certOps.remove}
+            addLabel="Add certification"
+            render={(item) => (
+              <TwoCol cols="1.5fr 1.5fr 0.8fr">
+                <TextInput placeholder="Certification Name" value={item.name} onChange={(e) => certOps.update(item.id, { name: e.target.value })} />
+                <TextInput placeholder="Organization" value={item.org} onChange={(e) => certOps.update(item.id, { org: e.target.value })} />
+                <TextInput placeholder="Year" value={item.year} onChange={(e) => certOps.update(item.id, { year: e.target.value })} />
+              </TwoCol>
+            )}
+          />
+
+          {/* Achievements */}
+          <RepeatSection
+            title="Achievements"
+            items={achievements}
+            onAdd={() => achOps.add({ text: "" })}
+            onRemove={achOps.remove}
+            addLabel="Add achievement"
+            render={(item) => (
+              <>
+                <TextArea placeholder="Achievement" value={item.text} onChange={(e) => achOps.update(item.id, { text: e.target.value })} />
+                <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0" }}>
+                  <AIButton label="Suggest achievement" onClick={() => achOps.update(item.id, { text: suggestAchievement() })} />
+                </div>
+              </>
+            )}
+          />
+
+          {/* Languages */}
+          <RepeatSection
+            title="Languages"
+            items={languages}
+            onAdd={() => langOps.add({ name: "" })}
+            onRemove={langOps.remove}
+            addLabel="Add language"
+            render={(item) => (
+              <TextInput placeholder="Language" value={item.name} onChange={(e) => langOps.update(item.id, { name: e.target.value })} />
+            )}
+          />
+
+          {/* Hobbies */}
+          <SectionHeader title="Hobbies (optional)" />
+          <TextArea value={hobbies} onChange={(e) => setHobbies(e.target.value)} style={{ marginBottom: 20 }} />
+
+          {/* References */}
+          <SectionHeader title="References (optional)" />
+          <TextArea value={references} onChange={(e) => setReferences(e.target.value)} style={{ marginBottom: 4 }} />
+        </div>
+
+        {/* -------- LIVE PREVIEW -------- */}
+        <div style={{ position: "sticky", top: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, marginBottom: 10 }}>
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              title="Opens the print dialog — choose 'Save as PDF' as the destination"
+              style={{
+                border: "none",
+                background: "#14213D",
+                color: "#fff",
+                borderRadius: 8,
+                padding: "8px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: "'Inter', sans-serif",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              ⬇ Download PDF
+            </button>
+            {downloadWarning && (
+              <span style={{ fontSize: 11, color: "#B4322A", textAlign: "right", maxWidth: 260 }}>{downloadWarning}</span>
+            )}
+            {plan === "free" && (
+              <span style={{ fontSize: 11, color: "#8A93A3", textAlign: "right", maxWidth: 260 }}>
+                Free plan exports include a watermark.{" "}
+                <span
+                  onClick={() => setPricingModal({ requiredPlan: "basic" })}
+                  style={{ color: "#B45309", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Remove it
+                </span>
+              </span>
+            )}
+          </div>
+          <ResumePreview
+            templateId={templateId}
+            accent={accent}
+            fontStack={fontStack}
+            fontSize={fontSize}
+            spacing={spacing}
+            personal={personal}
+            photo={photo}
+            summary={summary}
+            education={education}
+            skills={skills}
+            experience={experience}
+            projects={projects}
+            certifications={certifications}
+            achievements={achievements}
+            languages={languages}
+            hobbies={hobbies}
+            references={references}
+            order={order}
+            visible={visible}
+            plan={plan}
+          />
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 860px) {
+          .rb-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+
+      {pricingModal && (
+        <PricingModal
+          requiredPlan={pricingModal.requiredPlan}
+          currentPlan={plan}
+          onClose={() => setPricingModal(null)}
+          onSubscribe={(newPlan) => setPlan(newPlan)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- small layout helpers ---------------- */
+
+function SectionHeader({ title, subtitle }) {
+  return (
+    <div style={{ margin: "18px 0 10px", paddingBottom: 6, borderBottom: "1px solid #E4E2DC" }}>
+      <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 15.5, fontWeight: 700, color: "#14213D" }}>
+        {title}
+      </div>
+      {subtitle && <div style={{ fontSize: 11.5, color: "#8A93A3", marginTop: 2 }}>{subtitle}</div>}
+    </div>
+  );
+}
+
+function TwoCol({ children, cols = "1fr 1fr" }) {
+  return <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, marginBottom: 8 }}>{children}</div>;
+}
+
+function RepeatSection({ title, items, onAdd, onRemove, addLabel, render }) {
+  return (
+    <div>
+      <SectionHeader title={title} />
+      {items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            background: "#FBFAF7",
+            border: "1px solid #E4E2DC",
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 10,
+            position: "relative",
+          }}
+        >
+          {render(item)}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={() => onRemove(item.id)}
+              style={{ background: "none", border: "none", color: "#B4322A", fontSize: 12, cursor: "pointer" }}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+      <GhostButton onClick={onAdd}>+ {addLabel}</GhostButton>
+      <div style={{ marginBottom: 20 }} />
+    </div>
+  );
+}
+
+function TagInput({ skills, onAdd, onRemove }) {
+  const [draft, setDraft] = useState("");
+  function commit() {
+    const v = draft.trim();
+    if (v) onAdd(v);
+    setDraft("");
+  }
+  return (
+    <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+        {skills.filter((s) => s.value).map((s) => (
+          <span
+            key={s.id}
+            style={{
+              background: "#F7F5F0",
+              border: "1px solid #E4E2DC",
+              borderRadius: 20,
+              padding: "4px 10px",
+              fontSize: 12.5,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {s.value}
+            <span onClick={() => onRemove(s.id)} style={{ cursor: "pointer", color: "#8A93A3" }}>✕</span>
+          </span>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <TextInput
+          placeholder="Type a skill and press Enter (e.g. Python)"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+          }}
+        />
+        <GhostButton onClick={commit}>Add</GhostButton>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- AI Resume Assistant panel ---------------- */
+
+function ScoreBar({ score }) {
+  const color = score >= 75 ? "#1E7F73" : score >= 50 ? "#FCA311" : "#B4322A";
+  return (
+    <div style={{ background: "#F1F1F1", borderRadius: 20, height: 10, overflow: "hidden" }}>
+      <div style={{ width: `${score}%`, height: "100%", background: color, transition: "width 0.4s ease" }} />
+    </div>
+  );
+}
+
+function LockedAIPanel({ onUpgrade }) {
+  return (
+    <div
+      style={{
+        background: "linear-gradient(135deg, #FBFAF7, #F3EFE6)",
+        border: "1px dashed #E4E2DC",
+        borderRadius: 12,
+        padding: 18,
+        marginBottom: 20,
+        textAlign: "center",
+      }}
+    >
+      <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 15.5, fontWeight: 700, color: "#14213D", marginBottom: 6 }}>
+        🔒 AI Resume Assistant
+      </div>
+      <div style={{ fontSize: 12, color: "#5B6472", marginBottom: 14, maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
+        Paste a job description and let AI tailor your summary and skills, score your match, and flag missing
+        keywords. Included with Premium.
+      </div>
+      <AIButton label={`Unlock Premium — ${PLANS.premium.price}${PLANS.premium.period}`} onClick={onUpgrade} />
+    </div>
+  );
+}
+
+function AIAssistantPanel({ personal, jobDescription, setJobDescription, aiResult, onAnalyze, onAutoFillSkills, onBuildForJob }) {
+  return (
+    <div
+      style={{
+        background: "linear-gradient(135deg, #FBFAF7, #F3EFE6)",
+        border: "1px solid #E4E2DC",
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+      }}
+    >
+      <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 15.5, fontWeight: 700, color: "#14213D", marginBottom: 6 }}>
+        ✦ AI Resume Assistant
+      </div>
+      <div style={{ fontSize: 12, color: "#5B6472", marginBottom: 10 }}>
+        Paste a job description below and let AI build a resume tailored to it — or use the individual tools to
+        tailor your resume, check your match score, and auto-fill relevant skills for
+        {personal.title ? ` "${personal.title}"` : " your role"}.
+      </div>
+      <TextArea
+        placeholder="Paste a target job description here..."
+        value={jobDescription}
+        onChange={(e) => setJobDescription(e.target.value)}
+        style={{ minHeight: 60, marginBottom: 8, background: "#fff" }}
+      />
+      <div
+        style={{
+          border: `1px dashed ${jobDescription.trim() ? "#FCA311" : "#E4E2DC"}`,
+          borderRadius: 9,
+          padding: "10px 12px",
+          marginBottom: 10,
+          background: "#fff",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onBuildForJob}
+          disabled={!jobDescription.trim()}
+          title={jobDescription.trim() ? "Fills skills, writes a tailored summary, and scores the match — all in one step" : "Paste a job description above first"}
+          style={{
+            border: "none",
+            background: jobDescription.trim() ? "linear-gradient(135deg, #14213D, #22335C)" : "#E4E2DC",
+            color: jobDescription.trim() ? "#fff" : "#8A93A3",
+            borderRadius: 8,
+            padding: "9px 16px",
+            fontSize: 13,
+            fontWeight: 700,
+            fontFamily: "'Inter', sans-serif",
+            cursor: jobDescription.trim() ? "pointer" : "not-allowed",
+            width: "100%",
+          }}
+        >
+          ✦ Build resume for this job
+        </button>
+        <div style={{ fontSize: 11, color: "#8A93A3", marginTop: 6 }}>
+          Auto-fills skills, writes a tailored summary, and scores the match against this job in one step.
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: aiResult ? 12 : 0 }}>
+        <AIButton label="Analyze match" onClick={onAnalyze} />
+        <GhostButton onClick={onAutoFillSkills}>+ Auto-fill skills for role</GhostButton>
+      </div>
+      {aiResult && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#14213D" }}>Resume score: {aiResult.score}/100</span>
+          </div>
+          <ScoreBar score={aiResult.score} />
+          {aiResult.tips.length > 0 && (
+            <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12.5, color: "#5B6472" }}>
+              {aiResult.tips.map((t, i) => (
+                <li key={i} style={{ marginBottom: 3 }}>{t}</li>
+              ))}
+            </ul>
+          )}
+          {aiResult.missingKeywords.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: "#8A93A3", marginBottom: 6 }}>
+                Missing keywords from job description
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {aiResult.missingKeywords.slice(0, 10).map((k) => (
+                  <span
+                    key={k}
+                    style={{
+                      background: "#FCE9C7",
+                      color: "#8A5A00",
+                      borderRadius: 20,
+                      padding: "3px 9px",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Pricing / checkout modal ---------------- */
+
+const overlayStyle = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(20,33,61,0.55)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+  padding: 20,
+};
+
+const modalStyle = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 24,
+  width: "100%",
+  maxWidth: 460,
+  maxHeight: "88vh",
+  overflowY: "auto",
+  position: "relative",
+  fontFamily: "'Inter', sans-serif",
+  boxShadow: "0 20px 60px rgba(20,33,61,0.3)",
+};
+
+const titleStyle = {
+  fontFamily: "'Source Serif 4', serif",
+  fontSize: 19,
+  fontWeight: 700,
+  color: "#14213D",
+  marginBottom: 4,
+};
+
+const closeBtnStyle = {
+  position: "absolute",
+  top: 14,
+  right: 14,
+  border: "none",
+  background: "none",
+  fontSize: 15,
+  color: "#8A93A3",
+  cursor: "pointer",
+};
+
+function primaryBtnStyle(disabled) {
+  return {
+    border: "none",
+    background: disabled ? "#E4E2DC" : "linear-gradient(135deg, #14213D, #22335C)",
+    color: disabled ? "#8A93A3" : "#fff",
+    borderRadius: 9,
+    padding: "11px 16px",
+    fontSize: 13.5,
+    fontWeight: 700,
+    fontFamily: "'Inter', sans-serif",
+    cursor: disabled ? "not-allowed" : "pointer",
+    width: "100%",
+  };
+}
+
+function PlanCard({ plan, selected, current, onSelect }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      style={{
+        textAlign: "left",
+        cursor: "pointer",
+        border: selected ? "2px solid #14213D" : "1px solid #E4E2DC",
+        borderRadius: 12,
+        padding: 14,
+        background: selected ? "#F7F5F0" : "#fff",
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#14213D" }}>{plan.name}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#14213D", margin: "4px 0" }}>
+        {plan.price}
+        <span style={{ fontSize: 11, fontWeight: 500, color: "#8A93A3" }}>{plan.period}</span>
+      </div>
+      <div style={{ fontSize: 11, color: "#8A93A3", marginBottom: 8 }}>{plan.tagline}</div>
+      <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11.5, color: "#5B6472" }}>
+        {plan.features.map((f, i) => (
+          <li key={i} style={{ marginBottom: 2 }}>{f}</li>
+        ))}
+      </ul>
+      {current && <div style={{ marginTop: 8, fontSize: 10.5, fontWeight: 700, color: "#1E7F73" }}>Current plan</div>}
+    </button>
+  );
+}
+
+function formatCardNumber(v) {
+  return v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+}
+function formatExpiry(v) {
+  const digits = v.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + "/" + digits.slice(2);
+}
+
+function PricingModal({ requiredPlan, currentPlan, onClose, onSubscribe }) {
+  const [selected, setSelected] = useState(requiredPlan === "premium" ? "premium" : "basic");
+  const [step, setStep] = useState("plans"); // plans | payment | processing | success
+  const [card, setCard] = useState({ name: "", number: "", expiry: "", cvv: "" });
+  const [cardErrors, setCardErrors] = useState({});
+
+  function validateCard() {
+    const e = {};
+    if (!card.name.trim()) e.name = "Enter the name on the card.";
+    if (card.number.replace(/\s/g, "").length !== 16) e.number = "Enter a 16-digit card number.";
+    if (!/^\d{2}\/\d{2}$/.test(card.expiry)) e.expiry = "Use MM/YY format.";
+    if (!/^\d{3,4}$/.test(card.cvv)) e.cvv = "Enter a valid CVV.";
+    setCardErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function handlePay(e) {
+    e.preventDefault();
+    if (!validateCard()) return;
+    setStep("processing");
+    setTimeout(() => {
+      onSubscribe(selected);
+      setStep("success");
+    }, 900);
+  }
+
+  const planInfo = PLANS[selected];
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={onClose} style={closeBtnStyle}>✕</button>
+
+        {step === "plans" && (
+          <>
+            <div style={titleStyle}>Choose a plan</div>
+            <div style={{ fontSize: 12.5, color: "#5B6472", marginBottom: 16 }}>
+              {requiredPlan === "premium"
+                ? "The AI Resume Assistant is part of Premium."
+                : "This template unlocks with Basic or Premium."}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
+              {["basic", "premium"].map((id) => (
+                <PlanCard
+                  key={id}
+                  plan={PLANS[id]}
+                  selected={selected === id}
+                  current={currentPlan === id}
+                  onSelect={() => setSelected(id)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={currentPlan === selected}
+              onClick={() => setStep("payment")}
+              style={primaryBtnStyle(currentPlan === selected)}
+            >
+              {currentPlan === selected
+                ? "Already your plan"
+                : `Continue with ${planInfo.name} — ${planInfo.price}${planInfo.period}`}
+            </button>
+          </>
+        )}
+
+        {step === "payment" && (
+          <form onSubmit={handlePay}>
+            <div style={titleStyle}>Payment details</div>
+            <div style={{ fontSize: 12, color: "#8A93A3", marginBottom: 14 }}>
+              Demo checkout — this is a prototype form and no real payment is processed.
+            </div>
+            <div
+              style={{
+                background: "#FBFAF7",
+                border: "1px solid #E4E2DC",
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 14,
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 13,
+              }}
+            >
+              <span>{planInfo.name} plan</span>
+              <span style={{ fontWeight: 700 }}>{planInfo.price}{planInfo.period}</span>
+            </div>
+            <Field label="Name on card" error={cardErrors.name}>
+              <TextInput
+                value={card.name}
+                onChange={(e) => setCard({ ...card, name: e.target.value })}
+                placeholder="As shown on card"
+              />
+            </Field>
+            <Field label="Card number" error={cardErrors.number}>
+              <TextInput
+                value={card.number}
+                onChange={(e) => setCard({ ...card, number: formatCardNumber(e.target.value) })}
+                placeholder="1234 5678 9012 3456"
+                inputMode="numeric"
+              />
+            </Field>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Field label="Expiry" error={cardErrors.expiry}>
+                <TextInput
+                  value={card.expiry}
+                  onChange={(e) => setCard({ ...card, expiry: formatExpiry(e.target.value) })}
+                  placeholder="MM/YY"
+                />
+              </Field>
+              <Field label="CVV" error={cardErrors.cvv}>
+                <TextInput
+                  value={card.cvv}
+                  onChange={(e) => setCard({ ...card, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                  placeholder="123"
+                  inputMode="numeric"
+                />
+              </Field>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <GhostButton onClick={() => setStep("plans")}>Back</GhostButton>
+              <button type="submit" style={primaryBtnStyle(false)}>
+                Pay {planInfo.price}{planInfo.period}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === "processing" && (
+          <div style={{ textAlign: "center", padding: "30px 0" }}>
+            <div style={{ fontSize: 14, color: "#5B6472" }}>Processing payment…</div>
+          </div>
+        )}
+
+        {step === "success" && (
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <div style={{ fontSize: 30, marginBottom: 6 }}>✦</div>
+            <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 18, fontWeight: 700, color: "#14213D", marginBottom: 6 }}>
+              You're on {planInfo.name}
+            </div>
+            <div style={{ fontSize: 12.5, color: "#5B6472", marginBottom: 18 }}>
+              All {planInfo.name.toLowerCase()} features are unlocked now.
+            </div>
+            <button type="button" onClick={onClose} style={primaryBtnStyle(false)}>
+              Done
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Preview / Templates ---------------- */
+
+function Watermark() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "none",
+        overflow: "hidden",
+        zIndex: 5,
+      }}
+    >
+      <div
+        style={{
+          transform: "rotate(-32deg)",
+          fontSize: 42,
+          fontWeight: 800,
+          letterSpacing: 3,
+          color: "rgba(20,33,61,0.08)",
+          whiteSpace: "nowrap",
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        FREE PLAN · UPGRADE TO REMOVE
+      </div>
+    </div>
+  );
+}
+
+function ResumePreview(props) {
+  const { templateId } = props;
+  const Comp = TEMPLATE_COMPONENTS[templateId] || TemplateModernBlue;
+
+  return (
+    <div
+      id="resume-preview-page"
+      style={{
+        background: "#fff",
+        borderRadius: 4,
+        boxShadow: "0 10px 30px rgba(20,33,61,0.18)",
+        overflow: "hidden",
+        minHeight: 600,
+        fontFamily: props.fontStack,
+        fontSize: props.fontSize,
+        lineHeight: props.spacing + 0.3,
+        color: "#222",
+        position: "relative",
+      }}
+    >
+      <Comp {...props} />
+      {props.plan === "free" && <Watermark />}
+    </div>
+  );
+}
+
+function orderedVisibleSections(order, visible) {
+  return order.filter((k) => visible[k]);
+}
+
+function SectionBlock({ title, accent, children, uppercase = true }) {
+  return (
+    <div className="rb-section" style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          fontSize: 12.5,
+          fontWeight: 700,
+          color: accent,
+          textTransform: uppercase ? "uppercase" : "none",
+          letterSpacing: 1,
+          borderBottom: `2px solid ${accent}`,
+          paddingBottom: 4,
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function renderSectionContent(key, p) {
+  const { accent, personal, summary, education, skills, experience, projects, certifications, achievements, languages, hobbies, references } = p;
+  switch (key) {
+    case "summary":
+      return summary ? <SectionBlock title="Summary" accent={accent}><p style={{ margin: 0 }}>{summary}</p></SectionBlock> : null;
+    case "education":
+      return education.some((e) => e.school) ? (
+        <SectionBlock title="Education" accent={accent}>
+          {education.filter((e) => e.school).map((e) => (
+            <div key={e.id} style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 700 }}>{e.school}</div>
+              <div style={{ fontSize: "0.92em", color: "#555" }}>
+                {[e.degree, e.branch].filter(Boolean).join(", ")} {e.grade && `· ${e.grade}`}
+              </div>
+              <div style={{ fontSize: "0.85em", color: "#888" }}>{[e.start, e.end].filter(Boolean).join(" – ")}</div>
+            </div>
+          ))}
+        </SectionBlock>
+      ) : null;
+    case "skills":
+      return skills.some((s) => s.value) ? (
+        <SectionBlock title="Skills" accent={accent}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {skills.filter((s) => s.value).map((s) => (
+              <span key={s.id} style={{ background: "#F1F1F1", borderRadius: 4, padding: "2px 8px", fontSize: "0.85em" }}>
+                {s.value}
+              </span>
+            ))}
+          </div>
+        </SectionBlock>
+      ) : null;
+    case "experience":
+      return experience.length ? (
+        <SectionBlock title="Experience" accent={accent}>
+          {experience.map((e) => (
+            <div key={e.id} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                <span>{e.role}{e.company ? ` — ${e.company}` : ""}</span>
+                <span style={{ fontWeight: 400, fontSize: "0.85em", color: "#888" }}>{[e.start, e.end].filter(Boolean).join(" – ")}</span>
+              </div>
+              {e.location && <div style={{ fontSize: "0.85em", color: "#888" }}>{e.location}</div>}
+              {e.bullets && (
+                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                  {e.bullets.split("\n").filter(Boolean).map((b, i) => <li key={i}>{b}</li>)}
+                </ul>
+              )}
+            </div>
+          ))}
+        </SectionBlock>
+      ) : null;
+    case "projects":
+      return projects.length ? (
+        <SectionBlock title="Projects" accent={accent}>
+          {projects.map((pr) => (
+            <div key={pr.id} style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 700 }}>{pr.name} {pr.tech && <span style={{ fontWeight: 400, color: "#888", fontSize: "0.85em" }}>({pr.tech})</span>}</div>
+              {pr.description && <div style={{ fontSize: "0.9em" }}>{pr.description}</div>}
+              <div style={{ fontSize: "0.8em", color: accent }}>{[pr.github, pr.demo].filter(Boolean).join("  ·  ")}</div>
+            </div>
+          ))}
+        </SectionBlock>
+      ) : null;
+    case "certifications":
+      return certifications.length ? (
+        <SectionBlock title="Certifications" accent={accent}>
+          {certifications.map((c) => (
+            <div key={c.id} style={{ fontSize: "0.9em", marginBottom: 4 }}>
+              {c.name}{c.org && `, ${c.org}`}{c.year && ` (${c.year})`}
+            </div>
+          ))}
+        </SectionBlock>
+      ) : null;
+    case "achievements":
+      return achievements.length ? (
+        <SectionBlock title="Achievements" accent={accent}>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {achievements.map((a) => <li key={a.id} style={{ fontSize: "0.9em" }}>{a.text}</li>)}
+          </ul>
+        </SectionBlock>
+      ) : null;
+    case "languages":
+      return languages.length ? (
+        <SectionBlock title="Languages" accent={accent}>
+          <div style={{ fontSize: "0.9em" }}>{languages.map((l) => l.name).filter(Boolean).join(", ")}</div>
+        </SectionBlock>
+      ) : null;
+    case "hobbies":
+      return hobbies ? <SectionBlock title="Hobbies" accent={accent}><div style={{ fontSize: "0.9em" }}>{hobbies}</div></SectionBlock> : null;
+    case "references":
+      return references ? <SectionBlock title="References" accent={accent}><div style={{ fontSize: "0.9em" }}>{references}</div></SectionBlock> : null;
+    default:
+      return null;
+  }
+}
+
+function Header({ personal, photo, accent, align = "left" }) {
+  return (
+    <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 20, flexDirection: align === "center" ? "column" : "row", textAlign: align }}>
+      {photo && <img src={photo} alt="" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover" }} />}
+      <div>
+        <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.7em", fontWeight: 700, color: accent }}>
+          {personal.fullName || "Your Name"}
+        </div>
+        <div style={{ fontSize: "1em", color: "#555", marginTop: 2 }}>{personal.title}</div>
+        <div style={{ fontSize: "0.82em", color: "#888", marginTop: 4 }}>
+          {[personal.email, personal.phone, personal.address].filter(Boolean).join("  ·  ")}
+        </div>
+        <div style={{ fontSize: "0.82em", color: accent, marginTop: 2 }}>
+          {[personal.linkedin, personal.github, personal.portfolio].filter(Boolean).join("  ·  ")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemplateModernBlue(p) {
+  return (
+    <div style={{ padding: "32px 34px" }}>
+      <Header personal={p.personal} photo={p.photo} accent={p.accent} />
+      {orderedVisibleSections(p.order, p.visible).map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+function TemplateMinimalWhite(p) {
+  return (
+    <div style={{ padding: "32px 34px" }}>
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        {p.photo && (
+          <img
+            src={p.photo}
+            alt=""
+            style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", marginBottom: 10 }}
+          />
+        )}
+        <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.7em", fontWeight: 700 }}>{p.personal.fullName || "Your Name"}</div>
+        <div style={{ fontSize: "0.95em", color: "#666" }}>{p.personal.title}</div>
+        <div style={{ fontSize: "0.8em", color: "#999", marginTop: 6 }}>
+          {[p.personal.email, p.personal.phone, p.personal.linkedin].filter(Boolean).join("   ·   ")}
+        </div>
+        <div style={{ height: 1, background: "#eee", marginTop: 16 }} />
+      </div>
+      {orderedVisibleSections(p.order, p.visible).map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, { ...p, accent: "#333" })}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+function TemplateElegantBlack(p) {
+  return (
+    <div style={{ background: "#181818", color: "#EDEDED", padding: "32px 34px", minHeight: 600 }}>
+      <Header personal={p.personal} photo={p.photo} accent={p.accent} align="center" />
+      {orderedVisibleSections(p.order, p.visible).map((k) => (
+        <div key={k} style={{ color: "#EDEDED" }}>
+          {renderSectionContent(k, p)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TemplateCreativeSidebar(p) {
+  const sections = orderedVisibleSections(p.order, p.visible);
+  const sideKeys = ["skills", "languages", "certifications", "hobbies"];
+  const side = sections.filter((k) => sideKeys.includes(k));
+  const main = sections.filter((k) => !sideKeys.includes(k));
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "34% 66%", minHeight: 600 }}>
+      <div style={{ background: p.accent, color: "#fff", padding: "28px 20px" }}>
+        {p.photo && <img src={p.photo} alt="" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", marginBottom: 10 }} />}
+        <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.3em", fontWeight: 700 }}>{p.personal.fullName || "Your Name"}</div>
+        <div style={{ fontSize: "0.85em", opacity: 0.85, marginBottom: 12 }}>{p.personal.title}</div>
+        <div style={{ fontSize: "0.78em", opacity: 0.85, lineHeight: 1.7 }}>
+          {p.personal.email && <div>{p.personal.email}</div>}
+          {p.personal.phone && <div>{p.personal.phone}</div>}
+          {p.personal.address && <div>{p.personal.address}</div>}
+          {p.personal.linkedin && <div>{p.personal.linkedin}</div>}
+          {p.personal.github && <div>{p.personal.github}</div>}
+          {p.personal.portfolio && <div>{p.personal.portfolio}</div>}
+        </div>
+        <div style={{ marginTop: 16 }}>
+          {side.map((k) => (
+            <div key={k} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: "0.78em", textTransform: "uppercase", letterSpacing: 1, fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.4)", paddingBottom: 4, marginBottom: 6 }}>
+                {SECTION_META[k].label}
+              </div>
+              <div style={{ color: "#fff" }}>{renderSectionContent(k, { ...p, accent: "#fff" })}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ padding: "28px 26px" }}>
+        {main.map((k) => (
+          <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateCorporateProfessional(p) {
+  return (
+    <div>
+      <div
+        style={{
+          background: "#F4F4F4",
+          padding: "26px 34px",
+          borderBottom: `4px solid ${p.accent}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.7em", fontWeight: 700, color: p.accent }}>
+            {p.personal.fullName || "Your Name"}
+          </div>
+          <div style={{ fontSize: "1em", color: "#555", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>
+            {p.personal.title}
+          </div>
+          <div style={{ fontSize: "0.82em", color: "#777", marginTop: 8, display: "flex", flexWrap: "wrap", gap: 14 }}>
+            {[p.personal.email, p.personal.phone, p.personal.address, p.personal.linkedin]
+              .filter(Boolean)
+              .map((v, i) => <span key={i}>{v}</span>)}
+          </div>
+        </div>
+        {p.photo && (
+          <img
+            src={p.photo}
+            alt=""
+            style={{ width: 72, height: 72, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+          />
+        )}
+      </div>
+      <div style={{ padding: "26px 34px" }}>
+        {orderedVisibleSections(p.order, p.visible).map((k) => (
+          <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateStudentFresher(p) {
+  // Leads with Education and Skills, since a fresher's strongest assets
+  // are usually academics and capability rather than work history.
+  const order = p.order.filter((k) => p.visible[k]);
+  const priority = ["education", "skills", "projects"];
+  const reordered = [
+    ...priority.filter((k) => order.includes(k)),
+    ...order.filter((k) => !priority.includes(k)),
+  ];
+  return (
+    <div style={{ padding: "32px 34px" }}>
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        {p.photo && (
+          <img
+            src={p.photo}
+            alt=""
+            style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", marginBottom: 10 }}
+          />
+        )}
+        <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.6em", fontWeight: 700, color: p.accent }}>
+          {p.personal.fullName || "Your Name"}
+        </div>
+        <div style={{ fontSize: "0.95em", color: "#666" }}>{p.personal.title || "Aspiring Professional"}</div>
+        <div style={{ fontSize: "0.8em", color: "#999", marginTop: 6 }}>
+          {[p.personal.email, p.personal.phone, p.personal.linkedin, p.personal.github]
+            .filter(Boolean)
+            .join("   ·   ")}
+        </div>
+      </div>
+      <div style={{ background: `${p.accent}12`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: "0.85em", color: p.accent, fontWeight: 600 }}>
+        Fresh graduate profile — education, skills, and projects highlighted first.
+      </div>
+      {reordered.map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, { ...p, accent: p.accent })}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+function TemplateTwoToneCompact(p) {
+  return (
+    <div>
+      <div style={{ background: p.accent, color: "#fff", padding: "20px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.5em", fontWeight: 700 }}>{p.personal.fullName || "Your Name"}</div>
+          <div style={{ fontSize: "0.85em", opacity: 0.85 }}>{p.personal.title}</div>
+        </div>
+        {p.photo && <img src={p.photo} alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} />}
+      </div>
+      <div style={{ padding: "10px 30px", fontSize: "0.78em", color: "#666", borderBottom: "1px solid #eee", display: "flex", flexWrap: "wrap", gap: 12 }}>
+        {[p.personal.email, p.personal.phone, p.personal.address, p.personal.linkedin, p.personal.github, p.personal.portfolio]
+          .filter(Boolean)
+          .map((v, i) => <span key={i}>{v}</span>)}
+      </div>
+      <div style={{ padding: "20px 30px", columnCount: 2, columnGap: 24 }}>
+        {orderedVisibleSections(p.order, p.visible).map((k) => (
+          <div key={k} style={{ breakInside: "avoid" }}>
+            {renderSectionContent(k, p)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateTimelineFocus(p) {
+  const order = orderedVisibleSections(p.order, p.visible);
+  const timelineKeys = ["experience", "education"];
+  const timeline = order.filter((k) => timelineKeys.includes(k));
+  const rest = order.filter((k) => !timelineKeys.includes(k));
+  return (
+    <div style={{ padding: "32px 34px" }}>
+      <Header personal={p.personal} photo={p.photo} accent={p.accent} />
+      {timeline.map((k) => (
+        <div key={k} style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: p.accent,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              marginBottom: 10,
+            }}
+          >
+            {SECTION_META[k].label}
+          </div>
+          <div style={{ borderLeft: `2px solid ${p.accent}33`, paddingLeft: 16 }}>
+            {renderSectionContent(k, p)}
+          </div>
+        </div>
+      ))}
+      {rest.map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+function TemplateExecutiveLetterhead(p) {
+  return (
+    <div style={{ padding: "36px 40px" }}>
+      <div style={{ textAlign: "center", marginBottom: 6 }}>
+        {p.photo && (
+          <img
+            src={p.photo}
+            alt=""
+            style={{ width: 70, height: 70, borderRadius: "50%", objectFit: "cover", marginBottom: 10, border: `2px solid ${p.accent}` }}
+          />
+        )}
+        <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "2em", fontWeight: 700, letterSpacing: 1, color: p.accent }}>
+          {(p.personal.fullName || "Your Name").toUpperCase()}
+        </div>
+        <div style={{ fontSize: "0.95em", color: "#666", marginTop: 4, letterSpacing: 2, textTransform: "uppercase" }}>
+          {p.personal.title}
+        </div>
+      </div>
+      <div style={{ height: 2, background: p.accent, margin: "14px 0" }} />
+      <div style={{ textAlign: "center", fontSize: "0.8em", color: "#888", marginBottom: 24 }}>
+        {[p.personal.email, p.personal.phone, p.personal.address, p.personal.linkedin]
+          .filter(Boolean)
+          .join("   ·   ")}
+      </div>
+      {orderedVisibleSections(p.order, p.visible).map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+function TemplateSkillsFirstGrid(p) {
+  const order = orderedVisibleSections(p.order, p.visible);
+  const rest = order.filter((k) => k !== "skills");
+  const skillList = p.skills.filter((s) => s.value);
+  return (
+    <div style={{ padding: "32px 34px" }}>
+      <Header personal={p.personal} photo={p.photo} accent={p.accent} />
+      {skillList.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: p.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+            Core Skills
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+            {skillList.map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  border: `1px solid ${p.accent}`,
+                  color: p.accent,
+                  borderRadius: 6,
+                  padding: "6px 8px",
+                  fontSize: "0.82em",
+                  fontWeight: 600,
+                  textAlign: "center",
+                }}
+              >
+                {s.value}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {rest.map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+function TemplatePhotoBanner(p) {
+  return (
+    <div>
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${p.accent}, ${p.accent}CC)`,
+          padding: "30px 34px",
+          display: "flex",
+          alignItems: "center",
+          gap: 18,
+          color: "#fff",
+        }}
+      >
+        {p.photo ? (
+          <img src={p.photo} alt="" style={{ width: 84, height: 84, borderRadius: "50%", objectFit: "cover", border: "3px solid rgba(255,255,255,0.6)" }} />
+        ) : (
+          <div
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.15)",
+              border: "3px solid rgba(255,255,255,0.4)",
+            }}
+          />
+        )}
+        <div>
+          <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: "1.7em", fontWeight: 700 }}>
+            {p.personal.fullName || "Your Name"}
+          </div>
+          <div style={{ fontSize: "0.95em", opacity: 0.9 }}>{p.personal.title}</div>
+          <div style={{ fontSize: "0.78em", opacity: 0.85, marginTop: 6 }}>
+            {[p.personal.email, p.personal.phone, p.personal.linkedin].filter(Boolean).join("   ·   ")}
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "28px 34px" }}>
+        {orderedVisibleSections(p.order, p.visible).map((k) => (
+          <Fragment key={k}>{renderSectionContent(k, p)}</Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplatePlainATS(p) {
+  // Deliberately minimal styling — single column, no colors, no icons.
+  // Built for maximum compatibility with ATS parsers.
+  return (
+    <div style={{ padding: "30px 34px", color: "#000" }}>
+      <div style={{ fontSize: "1.5em", fontWeight: 700 }}>{p.personal.fullName || "Your Name"}</div>
+      <div style={{ fontSize: "1em", marginTop: 2 }}>{p.personal.title}</div>
+      <div style={{ fontSize: "0.85em", marginTop: 6 }}>
+        {[p.personal.email, p.personal.phone, p.personal.address, p.personal.linkedin, p.personal.github, p.personal.portfolio]
+          .filter(Boolean)
+          .join(" | ")}
+      </div>
+      <div style={{ height: 1, background: "#000", margin: "14px 0" }} />
+      {orderedVisibleSections(p.order, p.visible).map((k) => (
+        <Fragment key={k}>{renderSectionContent(k, { ...p, accent: "#000" })}</Fragment>
+      ))}
+    </div>
+  );
+}
+
+const TEMPLATE_COMPONENTS = {
+  modernBlue: TemplateModernBlue,
+  minimalWhite: TemplateMinimalWhite,
+  elegantBlack: TemplateElegantBlack,
+  creativeSidebar: TemplateCreativeSidebar,
+  corporateProfessional: TemplateCorporateProfessional,
+  studentFresher: TemplateStudentFresher,
+  twoToneCompact: TemplateTwoToneCompact,
+  timelineFocus: TemplateTimelineFocus,
+  executiveLetterhead: TemplateExecutiveLetterhead,
+  skillsFirstGrid: TemplateSkillsFirstGrid,
+  photoBanner: TemplatePhotoBanner,
+  plainATS: TemplatePlainATS,
+};
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<ResumeBuilder />);
+</script>
+</body>
+</html>
